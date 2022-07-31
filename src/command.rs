@@ -14,6 +14,9 @@ pub struct DiffCommand {
     #[clap(short, long, action)]
     pub replace_backslash: bool,
 
+    #[clap(short, long, action)]
+    pub threading: bool,
+
     #[clap(short, long, value_parser)]
     pub ignore_case: Vec<JsonPath>,
 
