@@ -2,27 +2,43 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde_json::Value;
 
 lazy_static! {
-    static ref VALID_REGEX:Regex=Regex::new(r"^\*|\[(0|[1-9][0-9]*)\]|\p{L}+$").unwrap();
+    static ref VALID_NON_KEY_REGEX:Regex=Regex::new(r"^\*|\[(0|[1-9][0-9]*)\]|\p{L}+$").unwrap();
 }
 
 #[derive(Clone,Debug,Eq,PartialEq,Hash)]
-pub struct JsonPath(Vec<String>);
+pub enum PathIndex{
+    Index(usize),
+    Key(String),
+    Any,
+}
+
+impl ToString for PathIndex{
+    fn to_string(&self) -> String {
+        match self {
+            PathIndex::Index(i) => i.to_string(),
+            PathIndex::Key(k) => k.clone(),
+            PathIndex::Any => "*".into(),
+        }
+    }
+}
+
+#[derive(Clone,Debug,Eq,PartialEq,Hash)]
+pub struct JsonPath(Vec<PathIndex>);
 
 impl JsonPath{
     pub fn new()->JsonPath{
         return JsonPath(vec![]);
     }
-    pub fn extend(&mut self,exp:&str)->Result<(),()>{
-        if VALID_REGEX.is_match(exp){
-            Ok(self.0.push(exp.into()))
-        }else{
-            Err(())
-        }
+    pub fn extend(&mut self,exp:PathIndex){
+        self.0.push(exp);
     }
     pub fn show(&self)->String{
-        self.0.join(".")
+        self.0.iter()
+            .map(|c|c.to_string())
+            .collect::<Vec<String>>().join(".")
     }
 }
 
@@ -37,10 +53,13 @@ impl FromStr for JsonPath{
 
         let mut sub_exp_vec =Vec::new();
         for (i,sub_exp) in exp.split(".").enumerate(){
-            if !VALID_REGEX.is_match(sub_exp) && i!=0{
-                return Err(format!("Invalid sub-expression:{}",sub_exp));
+            if !VALID_NON_KEY_REGEX.is_match(sub_exp) && i!=0{
+                sub_exp_vec.push(PathIndex::Key(sub_exp.into()));
+            }else if sub_exp=="*"{
+                sub_exp_vec.push(PathIndex::Any);
+            }else if let Ok(i)=usize::from_str(sub_exp){
+                sub_exp_vec.push(PathIndex::Index(i));
             }
-            sub_exp_vec.push(sub_exp.into());
         }
         return Ok(JsonPath(sub_exp_vec));
     }

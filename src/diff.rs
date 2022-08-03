@@ -4,7 +4,7 @@ use std::thread;
 use std::time::SystemTime;
 use serde_json::Value;
 use crate::{DiffCommand, pretty_print_diff};
-use crate::jsonpath::JsonPath;
+use crate::jsonpath::{JsonPath, PathIndex};
 
 #[derive(Debug, Clone)]
 pub struct JsonDiff<'a> {
@@ -61,7 +61,7 @@ pub fn diff_json<'a>(left: &'a Value, right: &'a Value, command: &DiffCommand) {
     pretty_print_diff(&collect_res);
 }
 
-pub fn extract_json_pair<'a>(json: &'a Value, path: JsonPath) -> Vec<(JsonPath, &'a Value)> {
+pub fn extract_json_pair(json: &Value, path: JsonPath) -> Vec<(JsonPath, &Value)> {
     let mut json_pair = Vec::new();
     match json {
         Value::Null | Value::Bool(_) | Value::String(_) | Value::Number(_) => {
@@ -70,14 +70,14 @@ pub fn extract_json_pair<'a>(json: &'a Value, path: JsonPath) -> Vec<(JsonPath, 
         Value::Array(json_vec) => {
             for (i, sub_json) in json_vec.iter().enumerate() {
                 let mut sub_path = path.clone();
-                sub_path.extend(&format!("[{}]", i));
+                sub_path.extend(PathIndex::Index(i));
                 json_pair.extend(extract_json_pair(sub_json, sub_path));
             }
         }
         Value::Object(json_map) => {
             for (k, sub_json) in json_map.iter() {
                 let mut sub_path = path.clone();
-                sub_path.extend(k);
+                sub_path.extend(PathIndex::Key(k.clone()));
                 json_pair.extend(extract_json_pair(sub_json, sub_path));
             }
         }
