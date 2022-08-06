@@ -5,7 +5,7 @@ use regex::Regex;
 use serde_json::Value;
 
 lazy_static! {
-    static ref VALID_NON_KEY_REGEX:Regex=Regex::new(r"^\*|\[(0|[1-9][0-9]*)\]|\p{L}+$").unwrap();
+    static ref VALID_NON_KEY_REGEX:Regex=Regex::new(r"^\*|\[(0|[1-9][0-9]*)\]$").unwrap();
 }
 
 #[derive(Clone,Debug,Eq,PartialEq,Hash)]
