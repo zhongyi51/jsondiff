@@ -55,7 +55,7 @@ pub fn diff_json<'a>(left: &'a Value, right: &'a Value, command: &DiffCommand) {
         diff_map.entry(k).or_insert(JsonDiff::new()).set_right(v);
     }
     let collect_res = diff_map.into_iter()
-        .filter(|(k, _)| !command.ignore_case.contains(k))
+        .filter(|(k, _)| !command.ignore_case.iter().any(|ignore_k|ignore_k.can_ignore(k)))
         .filter(|(_, v)| v.is_diff())
         .collect();
     pretty_print_diff(&collect_res);
