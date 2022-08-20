@@ -25,8 +25,12 @@ impl<'a> JsonDiff<'a> {
     fn set_right(&mut self, right: &'a Value) {
         self.right = Some(right);
     }
-    fn is_diff(&self) -> bool {
-        self.left != self.right
+    fn is_diff(&self, key_only: bool) -> bool {
+        if key_only {
+            self.left.is_none() && self.right.is_some() || self.left.is_some() && self.right.is_none()
+        } else {
+            self.left != self.right
+        }
     }
     pub fn get_left(&self) -> Option<&'a Value> {
         self.left
@@ -44,8 +48,10 @@ pub fn diff_json<'a>(left: &'a Value, right: &'a Value, command: &DiffCommand) {
                 let left_map_join = scope.spawn(|| extract_json_pair(right, JsonPath::from_str("$").unwrap()));
                 (right_map_join.join().unwrap(), left_map_join.join().unwrap())
             })
-        } else { (extract_json_pair(left, JsonPath::from_str("$").unwrap()),
-                  extract_json_pair(right, JsonPath::from_str("$").unwrap())) };
+        } else {
+            (extract_json_pair(left, JsonPath::from_str("$").unwrap()),
+             extract_json_pair(right, JsonPath::from_str("$").unwrap()))
+        };
 
     let mut diff_map = HashMap::new();
     for (k, v) in &left_map {
@@ -55,8 +61,8 @@ pub fn diff_json<'a>(left: &'a Value, right: &'a Value, command: &DiffCommand) {
         diff_map.entry(k).or_insert(JsonDiff::new()).set_right(v);
     }
     let collect_res = diff_map.into_iter()
-        .filter(|(k, _)| !command.ignore_case.iter().any(|ignore_k|ignore_k.can_ignore(k)))
-        .filter(|(_, v)| v.is_diff())
+        .filter(|(k, _)| !command.ignore_case.iter().any(|ignore_k| ignore_k.can_ignore(k)))
+        .filter(|(k, v)| v.is_diff(command.key_only))
         .collect();
     pretty_print_diff(&collect_res);
 }
