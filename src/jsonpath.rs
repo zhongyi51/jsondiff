@@ -8,6 +8,8 @@ use serde_json::Value;
 
 lazy_static! {
     static ref VALID_NON_KEY_REGEX:Regex=Regex::new(r"^\*|\[(0|[1-9][0-9]*)\]$").unwrap();
+    static ref IGNORE_CASE_ESCAPE:Regex=Regex::new(r"\\(?P<x>.)").unwrap();
+    static ref IGNORE_CASE_PATH_TYPE:Regex=Regex::new("\\.\"(.+?)\"|\\.([0-9]+?)|\\.(\\*)|\\.<(.+?)>").unwrap();
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -15,6 +17,7 @@ pub enum PathIndex {
     Index(usize),
     Key(String),
     Any,
+    Regex(String),
 }
 
 impl ToString for PathIndex {
@@ -23,6 +26,7 @@ impl ToString for PathIndex {
             PathIndex::Index(i) => i.to_string(),
             PathIndex::Key(k) => k.clone(),
             PathIndex::Any => "*".into(),
+            PathIndex::Regex(r) => r.to_string()
         }
     }
 }
@@ -46,14 +50,19 @@ impl JsonPath {
         if self.0 == child.0 {
             return true;
         }
-        for pair in self.0.iter().zip_longest(child.0.iter()){
-            match (pair.as_ref().left(),pair.as_ref().right()){
+        for pair in self.0.iter().zip_longest(child.0.iter()) {
+            match (pair.as_ref().left(), pair.as_ref().right()) {
                 (Some(PathIndex::Any), _) => return true,
+                (Some(PathIndex::Regex(re)), Some(PathIndex::Key(k))) => {
+                    if !Regex::new(re).unwrap().is_match(k) {
+                        return false;
+                    }
+                }
                 (x, y) if x != y => return false,
                 _ => (),
             }
         }
-        panic!("Invalid JsonPath!");
+        return true;
     }
 }
 
@@ -66,15 +75,36 @@ impl FromStr for JsonPath {
         }
 
         let mut sub_exp_vec = Vec::new();
-        for (i, sub_exp) in exp.split(".").enumerate() {
-            if !VALID_NON_KEY_REGEX.is_match(sub_exp) && i != 0 {
-                sub_exp_vec.push(PathIndex::Key(sub_exp.into()));
-            } else if sub_exp == "*" {
+
+        for (i, c) in IGNORE_CASE_PATH_TYPE.captures_iter(exp).enumerate() {
+            if let Some(key) = c.get(1) {
+                sub_exp_vec.push(PathIndex::Key(key.as_str().to_string()));
+            } else if let Some(index) = c.get(2) {
+                sub_exp_vec.push(PathIndex::Index(usize::from_str(index.as_str()).unwrap()));
+            } else if let Some(_) = c.get(3) {
                 sub_exp_vec.push(PathIndex::Any);
-            } else if let Ok(i) = usize::from_str(sub_exp) {
-                sub_exp_vec.push(PathIndex::Index(i));
+            } else if let Some(r) = c.get(4) {
+                if let Ok(re) = Regex::new(r.as_str()) {
+                    sub_exp_vec.push(PathIndex::Regex(r.as_str().to_string()));
+                }
+            } else {
+                panic!("Invalid path content at ignore case index: {}", i);
             }
         }
         return Ok(JsonPath(sub_exp_vec));
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use regex::Regex;
+    use crate::jsonpath::IGNORE_CASE_PATH_TYPE;
+
+    #[test]
+    fn test_regex() {
+        let ss = "$.\"ss\".[3].\"[4]\".\"5\".\"hh\".*.<[0-9][a-z]>";
+        for l in IGNORE_CASE_PATH_TYPE.captures_iter(ss) {
+            println!("{:?}", l);
+        }
     }
 }

@@ -16,8 +16,8 @@ fn main() {
 
 fn run_cmd(cmd:DiffCommand){
     let t0=SystemTime::now();
-    let left=cmd.json1.get_json().expect("Invalid json1:");
-    let right=cmd.json2.get_json().expect("Invalid json2:");
+    let left=cmd.json1.get_json().expect("Invalid json1");
+    let right=cmd.json2.get_json().expect("Invalid json2");
 
 
     diff_json(&left,&right,&cmd);
