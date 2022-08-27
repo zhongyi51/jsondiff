@@ -9,7 +9,7 @@ use serde_json::Value;
 lazy_static! {
     static ref VALID_NON_KEY_REGEX:Regex=Regex::new(r"^\*|\[(0|[1-9][0-9]*)\]$").unwrap();
     static ref IGNORE_CASE_ESCAPE:Regex=Regex::new(r"\\(?P<x>.)").unwrap();
-    static ref IGNORE_CASE_PATH_TYPE:Regex=Regex::new("\\.\"(.+?)\"|\\.([0-9]+?)|\\.(\\*)|\\.<(.+?)>").unwrap();
+    static ref IGNORE_CASE_PATH_TYPE:Regex=Regex::new("\\.\"(.+?)\"|\\.\\[([0-9]+?)\\]|\\.(\\*)|\\.<(.+?)>").unwrap();
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -58,7 +58,7 @@ impl JsonPath {
                         return false;
                     }
                 }
-                (x, y) if x != y => return false,
+                (Some(x), Some(y)) if x != y => return false,
                 _ => (),
             }
         }
